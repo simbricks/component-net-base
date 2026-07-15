@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "simbricks-net-base"
+# Keep in sync with simbricks_version in conda-recipes/conda_build_config.yaml.
+version = "0.4.2"
+description = "SimBricks net-base Python integration package."
+authors = ["SimBricks <contact@simbricks.io>"]
+license = "MIT"
+homepage = "https://www.simbricks.io/"
+repository = "https://github.com/simbricks/simbricks"
+packages = [{ include = "simbricks_net_base" }]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

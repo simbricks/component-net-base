@@ -20,6 +20,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+## --- Build configuration ---------------------------------------------------
+
+# Install prefix for locally built artifacts, and where the simbricks-lib conda
+# package provides the headers and static archives we build against. Inside a
+# conda build this is the build prefix; for a local dev build override it, e.g.
+# PREFIX=$(CURDIR)/out.
+PREFIX            ?= $(CURDIR)/out
+SIMBRICKS_INC_DIR ?= $(PREFIX)/include
+SIMBRICKS_LIB_DIR ?= $(PREFIX)/lib/simbricks
+
+# Compilers and python interpreter (overridable by conda / the environment).
+CC     ?= cc
+CXX    ?= c++
+PYTHON ?= python
+
 # Optional: redirect conda-build output, e.g. OUTPUT_FOLDER=./conda-out.
 OUTPUT_FOLDER     ?=
 OUTPUT_FLAG       := $(if $(OUTPUT_FOLDER),--output-folder $(OUTPUT_FOLDER))
@@ -29,23 +44,78 @@ OUTPUT_FLAG       := $(if $(OUTPUT_FOLDER),--output-folder $(OUTPUT_FOLDER))
 SIMB_CONDA_CHANNEL:= -c https://conda.simbricks.io/latest
 BASE_BUILD_CMD    := conda build $(SIMB_CONDA_CHANNEL) -m conda-recipes/conda_build_config.yaml $(OUTPUT_FLAG)
 
-.PHONY: all conda-packages pypi-build pypi-publish clean
+.PHONY: all sims-build sims-install python-develop python-conda sim-bin-conda \
+        conda-packages pypi-build pypi-publish clean
+
+## --- Simulators (local dev build, no conda) --------------------------------
+
+# Every simulator in the repo. Each lives in a directory of the same name whose
+# self-contained rules.mk exposes `all` (build), `install`, and `clean`. Adding
+# a new simulator is a one-word edit here plus its rules.mk.
+SIMS := switch wire
+
+# $(call sim_rules,<dir>) — generate build/install/clean targets for one sim.
+# We forward the whole toolchain + paths uniformly; each sim uses whichever of
+# CC/CXX it needs. `install` depends on the binary inside rules.mk, so the full
+# var set is forwarded there too (not just PREFIX) for the archive prerequisites.
+define sim_rules
+.PHONY: $(1)-build $(1)-install $(1)-clean
+
+$(1)-build:
+	$$(MAKE) -C $(1) -f rules.mk all \
+	    CC="$$(CC)" CXX="$$(CXX)" \
+	    SIMBRICKS_INC_DIR="$$(SIMBRICKS_INC_DIR)" \
+	    SIMBRICKS_LIB_DIR="$$(SIMBRICKS_LIB_DIR)"
+
+$(1)-install: $(1)-build
+	$$(MAKE) -C $(1) -f rules.mk install \
+	    CC="$$(CC)" CXX="$$(CXX)" \
+	    SIMBRICKS_INC_DIR="$$(SIMBRICKS_INC_DIR)" \
+	    SIMBRICKS_LIB_DIR="$$(SIMBRICKS_LIB_DIR)" \
+	    PREFIX="$$(PREFIX)"
+
+$(1)-clean:
+	$$(MAKE) -C $(1) -f rules.mk clean
+endef
+
+$(foreach s,$(SIMS),$(eval $(call sim_rules,$(s))))
+
+# Aggregate over every simulator in the repo.
+sims-build:   $(addsuffix -build,$(SIMS))
+sims-install: $(addsuffix -install,$(SIMS))
+
+## --- Python integration package (simbricks-net-base-python/) ---------------
+
+# Editable install for local development (not used by the conda build).
+python-develop:
+	$(PYTHON) -m pip install -e ./simbricks-net-base-python
 
 ## --- Conda packages --------------------------------------------------------
 
-conda-packages:
+# Build the noarch python conda package.
+python-conda:
+	$(BASE_BUILD_CMD) conda-recipes/simbricks-net-base-sim-py
+
+# Build the compiled simulator conda package.
+sim-bin-conda: python-conda
+	$(BASE_BUILD_CMD) conda-recipes/simbricks-net-base-sim-bin
+
+# Build both conda packages in dependency order.
+conda-packages: python-conda sim-bin-conda
 
 ## --- PyPI packages ---------------------------------------------------------
 
 pypi-build:
+	poetry build -C ./simbricks-net-base-python
 
 pypi-publish: pypi-build
+	poetry publish -C ./simbricks-net-base-python
 
-## --- Default target ----------------------------------------------------------
+## --- Default target --------------------------------------------------------
 
 # Default: local dev build of both halves.
 all: conda-packages
 
 ## --- Housekeeping ----------------------------------------------------------
 
-clean:
+clean: $(addsuffix -clean,$(SIMS))
