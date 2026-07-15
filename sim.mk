@@ -20,7 +20,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# Shared build recipe for a single net-base simulator. A sim's rules.mk sets a
+# Shared build recipe for a single net-base simulator. A sim's Makefile sets a
 # few variables and then `include ../sim.mk`:
 #   SIM_BIN     - output binary name             (e.g. net_switch)
 #   SIM_SRC     - single source file             (e.g. net_switch.cc / net_wire.c)
@@ -28,12 +28,12 @@
 #   SIM_LIBS    - simbricks archive base names, in link order (e.g. nicif network base)
 #   SIM_LDLIBS  - extra link libraries, optional (e.g. -lpcap)
 #
-# It is invoked from the top-level Makefile as:
-#   $(MAKE) -C <dir> -f rules.mk <target>
-# GNU make chdirs into <dir>/ (via -C) first, so relative paths (SIM_SRC, the
-# output binary, and the "../netproto/..." quoted include some sims use) resolve
-# against <dir>/. The source extension selects the compiler; linking always uses
-# the C++ driver because the simbricks archives pull in C++ symbols.
+# Each sim directory is a standalone makefile: build it directly with
+#   make -C <dir> <target>      (or:  cd <dir> && make <target>)
+# GNU make runs in <dir>/, so relative paths (SIM_SRC, the output binary, the
+# "../netproto/..." quoted include some sims use, and this "../sim.mk" include)
+# resolve against <dir>/. The source extension selects the compiler; linking
+# always uses the C++ driver because the simbricks archives pull in C++ symbols.
 
 # --- Configuration (normally overridden on the top-level command line) -----
 PREFIX            ?= /usr/local
