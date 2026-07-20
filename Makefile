@@ -35,6 +35,9 @@ CC     ?= cc
 CXX    ?= c++
 PYTHON ?= python
 
+# Python packages
+NET_BASE_PY_SIM       := net_base_sim_py
+
 # Forward the toolchain + paths to every simulator sub-make via the environment,
 # so the per-sim invocations below don't have to repeat them. (Conda's CFLAGS /
 # CXXFLAGS / LDFLAGS already arrive from the environment and pass through too.)
@@ -85,7 +88,7 @@ sims-install: $(addsuffix -install,$(SIMS))
 
 # Editable install for local development (not used by the conda build).
 python-develop:
-	$(PYTHON) -m pip install -e ./simbricks-net-base-python
+	$(PYTHON) -m pip install -e ./$(NET_BASE_PY_SIM)
 
 ## --- Conda packages --------------------------------------------------------
 
@@ -103,10 +106,10 @@ conda-packages: python-conda sim-bin-conda
 ## --- PyPI packages ---------------------------------------------------------
 
 pypi-build:
-	poetry build -C ./simbricks-net-base-python
+	poetry build -C ./$(NET_BASE_PY_SIM)
 
 pypi-publish: pypi-build
-	poetry publish -C ./simbricks-net-base-python
+	poetry publish -C ./$(NET_BASE_PY_SIM)
 
 ## --- Default target --------------------------------------------------------
 
@@ -116,3 +119,4 @@ all: conda-packages
 ## --- Housekeeping ----------------------------------------------------------
 
 clean: $(addsuffix -clean,$(SIMS))
+	rm -rf $(NET_BASE_PY_SIM)/dist
