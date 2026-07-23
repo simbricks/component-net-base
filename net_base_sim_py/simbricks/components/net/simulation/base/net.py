@@ -71,8 +71,8 @@ class WireNet(sim_net.NetSim):
         sockets = self._get_socks_by_all_comp(inst=inst)
         assert len(sockets) == 2
 
-        cmd = inst.env.repo_base(self._executable)
-        cmd += f"{sockets[0]._path} {sockets[1]._path} {run_sync} {sync_period} {eth_latency}"
+        cmd = self._executable
+        cmd += f" {sockets[0]._path} {sockets[1]._path} {run_sync} {sync_period} {eth_latency}"
 
         if self._relative_pcap_file_path is not None:
             pcap_file = inst.env.output_base(
@@ -120,7 +120,7 @@ class SwitchNet(sim_net.NetSim):
             sim_base.Simulator.get_unique_latency_period_sync(channels=channels)
         )
 
-        cmd = inst.env.repo_base(self._executable)
+        cmd = self._executable
         cmd += f" -S {sync_period} -E {eth_latency}"
 
         if not run_sync:
