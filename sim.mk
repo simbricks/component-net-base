@@ -38,7 +38,7 @@
 # --- Configuration (normally overridden on the top-level command line) -----
 PREFIX            ?= /usr/local
 SIMBRICKS_INC_DIR ?= $(PREFIX)/include
-SIMBRICKS_LIB_DIR ?= $(PREFIX)/lib/simbricks
+SIMBRICKS_LIB_DIR ?= $(PREFIX)/lib
 
 CC       ?= cc
 CXX      ?= c++
