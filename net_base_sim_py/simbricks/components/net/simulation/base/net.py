@@ -38,7 +38,7 @@ class WireNet(sim_net.NetSim):
     ) -> None:
         super().__init__(
             simulation=simulation,
-            executable="sims/net/wire/net_wire",
+            executable="simb_net_wire",
         )
         self.name = f"WireNet-{self._id}"
         self._relative_pcap_file_path: str | None = relative_pcap_filepath
@@ -87,7 +87,7 @@ class SwitchNet(sim_net.NetSim):
     def __init__(
         self,
         simulation: sim_base.Simulation,
-        executable: str = "sims/net/switch/net_switch",
+        executable: str = "simb_net_switch",
         relative_pcap_filepath: str | None = None,
     ) -> None:
         super().__init__(
