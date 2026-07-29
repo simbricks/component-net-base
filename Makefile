@@ -60,7 +60,7 @@ BASE_BUILD_CMD    := conda build $(SIMB_CONDA_CHANNEL) -m conda-recipes/conda_bu
 # Every simulator in the repo. Each lives in a directory of the same name whose
 # standalone Makefile (it `include`s ../sim.mk) exposes `all` (build), `install`,
 # and `clean`. Adding a new simulator is a one-word edit here plus its Makefile.
-SIMS := switch wire tap
+SIMS := switch wire tap pktgen
 
 # $(call sim_rules,<dir>) — generate build/install/clean targets for one sim.
 # The toolchain + paths reach each sim's Makefile via the `export` above, so we
