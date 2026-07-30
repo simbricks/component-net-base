@@ -32,7 +32,7 @@
 # this version; they carry their own `>=` bounds since they release independently.
 
 simbricks_version:
-  - "0.4.2"
+  - "0.5.0"
 homepage:
   - "https://www.simbricks.io/"
 github_org:
