@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
   if (argc < 3 || argc > 7) {
     fprintf(stderr,
             "Usage: net_wire SOCKET-A SOCKET-B [SYNC-MODE (ignored)] "
-            "[SYNC-PERIOD] [ETH-LATENCY] [PCAP-FILE]\n");
+            "[SYNC-PERIOD (ps)] [ETH-LATENCY (ps)] [PCAP-FILE]\n");
     return EXIT_FAILURE;
   }
 
@@ -118,10 +118,10 @@ int main(int argc, char *argv[]) {
   signal(SIGUSR1, sigusr1_handler);
 
   if (argc >= 5)
-    params.sync_interval = strtoull(argv[4], NULL, 0) * 1000ULL;
+    params.sync_interval = strtoull(argv[4], NULL, 0);
 
   if (argc >= 6)
-    params.link_latency = strtoull(argv[5], NULL, 0) * 1000ULL;
+    params.link_latency = strtoull(argv[5], NULL, 0);
 
   if (argc >= 7) {
     pc = pcap_open_dead_with_tstamp_precision(DLT_EN10MB, 65535,

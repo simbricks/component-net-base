@@ -411,11 +411,11 @@ int main(int argc, char *argv[]) {
         break;
 
       case 'S':
-        netParams.sync_interval = strtoull(optarg, NULL, 0) * 1000ULL;
+        netParams.sync_interval = strtoull(optarg, NULL, 0);
         break;
 
       case 'E':
-        netParams.link_latency = strtoull(optarg, NULL, 0) * 1000ULL;
+        netParams.link_latency = strtoull(optarg, NULL, 0);
         break;
 
       case 'p':
@@ -488,7 +488,7 @@ int main(int argc, char *argv[]) {
 
   if (ports.empty() || bad_option) {
     fprintf(stderr,
-            "Usage: net_pktgen [-S SYNC-PERIOD] [-E ETH-LATENCY] [-u] "
+            "Usage: net_pktgen [-S SYNC-PERIOD (ps)] [-E ETH-LATENCY (ps)] [-u] "
             "[-p PCAP-FILE] [-n ID] [-b GBPS] [-t NS] "
             "-s SOCKET-A [-s SOCKET-B ...] [-h SOCKET-C ...]\n"
             "  -n  generator id, 0..254; src MAC 00:..:<id>, dst MAC of the\n"
