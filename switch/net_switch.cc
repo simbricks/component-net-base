@@ -440,11 +440,11 @@ int main(int argc, char *argv[]) {
         break;
 
       case 'S':
-        netParams.sync_interval = strtoull(optarg, NULL, 0) * 1000ULL;
+        netParams.sync_interval = strtoull(optarg, NULL, 0);
         break;
 
       case 'E':
-        netParams.link_latency = strtoull(optarg, NULL, 0) * 1000ULL;
+        netParams.link_latency = strtoull(optarg, NULL, 0);
         break;
 
       case 'p':
@@ -467,7 +467,7 @@ int main(int argc, char *argv[]) {
 
   if (ports.empty() || bad_option) {
     fprintf(stderr,
-            "Usage: net_switch [-S SYNC-PERIOD] [-E ETH-LATENCY] "
+            "Usage: net_switch [-S SYNC-PERIOD (ps)] [-E ETH-LATENCY (ps)] "
             "-s SOCKET-A [-s SOCKET-B ...]\n");
     return EXIT_FAILURE;
   }
