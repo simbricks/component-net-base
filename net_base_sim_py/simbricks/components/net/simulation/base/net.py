@@ -99,6 +99,9 @@ class SwitchNet(sim_net.NetSim):
         )
         self.name = f"SwitchNet-{self._id}"
         self._relative_pcap_file_path: str | None = relative_pcap_filepath
+        self.debug_log: str | None = None
+        """Path of the switch's per-packet debug log (`-d`); path placeholders are resolved on
+        the executor. Consumed by simbricks-trace."""
 
     def add(self, switch_spec: sys_eth.EthSwitch):
         utils_base.has_expected_type(switch_spec, sys_eth.EthSwitch)
@@ -109,12 +112,14 @@ class SwitchNet(sim_net.NetSim):
     def toJSON(self) -> dict:
         json_obj = super().toJSON()
         json_obj["relative_pcap_file_path"] = self._relative_pcap_file_path
+        json_obj["debug_log"] = self.debug_log
         return json_obj
 
     @classmethod
     def fromJSON(cls, simulation: sim_base.Simulation, json_obj: dict) -> tpe.Self:
         instance = super().fromJSON(simulation, json_obj)
         instance._relative_pcap_file_path = utils_base.get_json_attr_top(json_obj, "relative_pcap_file_path")
+        instance.debug_log = utils_base.get_json_attr_top_or_none(json_obj, "debug_log")
         return instance
 
     def run_cmd(self, inst: inst_base.Instantiation) -> str:
@@ -134,6 +139,9 @@ class SwitchNet(sim_net.NetSim):
                 relative_path=self._relative_pcap_file_path
             )
             cmd += " -p " + pcap_file
+
+        if self.debug_log:
+            cmd += " -d " + inst.resolve_placeholders(self.debug_log)
 
         sockets = self._get_socks_by_all_comp(inst=inst)
         listen, connect = sim_base.Simulator.split_sockets_by_type(sockets)
