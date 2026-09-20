@@ -217,7 +217,9 @@ class NetPort {
       data = (const void *)rx_->packet.data;
       len = rx_->packet.len;
       return kRxPollSuccess;
-    } else if (type == SIMBRICKS_PROTO_MSG_TYPE_SYNC) {
+    } else if (type == SIMBRICKS_PROTO_MSG_TYPE_SYNC ||
+               type == SIMBRICKS_PROTO_MSG_TYPE_TERMINATE) {
+      // a terminating peer sends no more packets; keep serving the others
       return kRxPollSync;
     } else {
       fprintf(stderr, "switch_pkt: unsupported type=%u\n", type);
@@ -492,7 +494,8 @@ int main(int argc, char *argv[]) {
           perror("opening debug log failed");
           return EXIT_FAILURE;
         }
-        setvbuf(debug_log, nullptr, _IOFBF, 1 << 20);
+        // line buffered: the log is usually a FIFO read live by a collector
+        setvbuf(debug_log, nullptr, _IOLBF, 1 << 16);
         break;
 
       case 'u':
