@@ -50,6 +50,42 @@ extern "C" {
 struct SimbricksBaseIfParams netParams;
 static pcap_dumper_t *dumpfile = nullptr;
 
+/* Debug log (-d PATH): one line per packet received and per forwarding
+ * decision, parsed by simbricks-trace. Format:
+ *   # simbricks-debug net_switch 1
+ *   # port <idx> <connect|listen> <socket path>
+ *   <cur_ts> rx <port> <len> <dst mac> <src mac> <ethertype> <msg ts>
+ *   <cur_ts> tx <in port> <out port> <len>
+ *   <cur_ts> drop <in port> <out port> <len>
+ */
+static FILE *debug_log = nullptr;
+
+static inline void debug_rx(uint64_t ts, size_t port, const void *pkt_data,
+                            size_t pkt_len, uint64_t msg_ts) {
+  if (!debug_log)
+    return;
+  const uint8_t *p = (const uint8_t *)pkt_data;
+  uint64_t dmac = 0, smac = 0;
+  unsigned etype = 0;
+  if (pkt_len >= 14) {
+    for (int i = 0; i < 6; i++) {
+      dmac = (dmac << 8) | p[i];
+      smac = (smac << 8) | p[6 + i];
+    }
+    etype = ((unsigned)p[12] << 8) | p[13];
+  }
+  fprintf(debug_log, "%lu rx %zu %zu %012lx %012lx %04x %lu\n", ts, port,
+          pkt_len, dmac, smac, etype, msg_ts);
+}
+
+static inline void debug_tx(uint64_t ts, const char *what, size_t in_port,
+                            size_t out_port, size_t pkt_len) {
+  if (!debug_log)
+    return;
+  fprintf(debug_log, "%lu %s %zu %zu %zu\n", ts, what, in_port, out_port,
+          pkt_len);
+}
+
 #ifdef NETSWITCH_STAT
 #endif
 
@@ -127,6 +163,10 @@ class NetPort {
  public:
   NetPort(const char *path, int sync) : rx_(nullptr), sync_(sync), path_(path) {
     memset(&netif_, 0, sizeof(netif_));
+  }
+
+  const char *Path() const {
+    return path_;
   }
 
   NetPort(const NetPort &other)
@@ -290,6 +330,8 @@ static void sigint_handler(int dummy) {
 
 static void sigusr1_handler(int dummy) {
   fprintf(stderr, "main_time = %lu\n", cur_ts);
+  if (debug_log)
+    fflush(debug_log);
   size_t n = ports.size();
   for (size_t i = 0; i < n; i++) {
     NetPort *p = ports[i];
@@ -347,8 +389,12 @@ static void forward_pkt(const void *pkt_data, size_t pkt_len, size_t port_id,
   }
 #endif
 
-  if (!dest_port.TxPacket(pkt_data, pkt_len, cur_ts))
+  if (dest_port.TxPacket(pkt_data, pkt_len, cur_ts)) {
+    debug_tx(cur_ts, "tx", iport_id, port_id, pkt_len);
+  } else {
+    debug_tx(cur_ts, "drop", iport_id, port_id, pkt_len);
     fprintf(stderr, "forward_pkt: dropping packet on port %zu\n", port_id);
+  }
 }
 
 static void switch_pkt(NetPort &port, size_t iport) {
@@ -375,6 +421,7 @@ static void switch_pkt(NetPort &port, size_t iport) {
 #endif
 
   if (poll == NetPort::kRxPollSuccess) {
+    debug_rx(cur_ts, iport, pkt_data, pkt_len, port.netif_.base.in_timestamp);
     // Get MAC addresses
     MAC dst((const uint8_t *)pkt_data), src((const uint8_t *)pkt_data + 6);
     // MAC learning
@@ -415,16 +462,18 @@ int main(int argc, char *argv[]) {
   int bad_option = 0;
   int sync_eth = 1;
   pcap_t *pc = nullptr;
+  std::vector<const char *> port_kinds;
 
   SimbricksNetIfDefaultParams(&netParams);
 
   // Parse command line argument
-  while ((c = getopt(argc, argv, "s:h:uS:E:p:")) != -1 && !bad_option) {
+  while ((c = getopt(argc, argv, "s:h:uS:E:p:d:")) != -1 && !bad_option) {
     switch (c) {
       case 's': {
         NetPort *port = new NetPort(optarg, sync_eth);
         fprintf(stderr, "Switch connecting to: %s\n", optarg);
         ports.push_back(port);
+        port_kinds.push_back("connect");
         break;
       }
 
@@ -432,8 +481,19 @@ int main(int argc, char *argv[]) {
         NetListenPort *port = new NetListenPort(optarg, sync_eth);
         fprintf(stderr, "Switch listening on: %s\n", optarg);
         ports.push_back(port);
+        port_kinds.push_back("listen");
         break;
       }
+
+      case 'd':
+        // may be a FIFO: the reader (simbricks-trace collector) is up already
+        debug_log = fopen(optarg, "w");
+        if (debug_log == nullptr) {
+          perror("opening debug log failed");
+          return EXIT_FAILURE;
+        }
+        setvbuf(debug_log, nullptr, _IOFBF, 1 << 20);
+        break;
 
       case 'u':
         sync_eth = 0;
@@ -467,14 +527,24 @@ int main(int argc, char *argv[]) {
 
   if (ports.empty() || bad_option) {
     fprintf(stderr,
-            "Usage: net_switch [-S SYNC-PERIOD (ps)] [-E ETH-LATENCY (ps)] "
-            "-s SOCKET-A [-s SOCKET-B ...]\n");
+            "Usage: net_switch [-S SYNC-PERIOD (ps)] [-E ETH-LATENCY (ps)] [-u] "
+            "[-p PCAP-FILE] [-d DEBUG-LOG] -s SOCKET-A [-s SOCKET-B ...] "
+            "[-h LISTEN-SOCKET ...]\n");
     return EXIT_FAILURE;
+  }
+
+  if (debug_log) {
+    fprintf(debug_log, "# simbricks-debug net_switch 1\n");
+    for (size_t i = 0; i < ports.size(); i++)
+      fprintf(debug_log, "# port %zu %s %s\n", i, port_kinds[i],
+              ports[i]->Path());
+    fflush(debug_log);
   }
 
   signal(SIGINT, sigint_handler);
   signal(SIGTERM, sigint_handler);
   signal(SIGUSR1, sigusr1_handler);
+  signal(SIGPIPE, SIG_IGN);
 
 #ifdef NETSWITCH_STAT
   signal(SIGUSR2, sigusr2_handler);
@@ -522,6 +592,9 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "%65s: %22lu  sync_rate: %f\n", "s_d2n_poll_sync",
           s_d2n_poll_sync, (double)s_d2n_poll_sync / s_d2n_poll_suc);
 #endif
+
+  if (debug_log)
+    fclose(debug_log);
 
   return 0;
 }
