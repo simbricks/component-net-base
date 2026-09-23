@@ -57,8 +57,13 @@ static pcap_dumper_t *dumpfile = nullptr;
  *   <cur_ts> rx <port> <len> <dst mac> <src mac> <ethertype> <msg ts>
  *   <cur_ts> tx <in port> <out port> <len>
  *   <cur_ts> drop <in port> <out port> <len>
+ *   <cur_ts> hb                (heartbeat: at most one per HEARTBEAT_PS of
+ *                               simulated time, so a switch without traffic
+ *                               still tells the reader how far it got)
  */
 static FILE *debug_log = nullptr;
+static const uint64_t HEARTBEAT_PS = 1000000000ULL; /* 1 ms simulated */
+static uint64_t heartbeat_ts = 0;
 
 static inline void debug_rx(uint64_t ts, size_t port, const void *pkt_data,
                             size_t pkt_len, uint64_t msg_ts) {
@@ -579,6 +584,10 @@ int main(int argc, char *argv[]) {
     // Update cur_ts
     if (min_ts < ULLONG_MAX) {
       cur_ts = min_ts;
+    }
+    if (debug_log && cur_ts - heartbeat_ts >= HEARTBEAT_PS) {
+      fprintf(debug_log, "%lu hb\n", cur_ts);
+      heartbeat_ts = cur_ts;
     }
   }
 
