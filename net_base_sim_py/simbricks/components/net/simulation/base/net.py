@@ -22,6 +22,8 @@
 
 from __future__ import annotations
 
+import os
+
 import typing_extensions as tpe
 
 from simbricks.orchestration.instantiation import base as inst_base
@@ -70,8 +72,18 @@ class WireNet(sim_net.NetSim):
 
         sockets = self._get_socks_by_all_comp(inst=inst)
         assert len(sockets) == 2
+        if inst.create_checkpoint:
+            run_sync = False  # like the hosts (KVM) while the checkpoint is created
 
-        cmd = self._executable
+        exe = self._executable
+        # net-base's build produces the raw binary as net_wire (sim.mk's SIM_BIN); only `make
+        # install` renames it to simb_net_wire (SIM_INSTALL). Point at the in-tree build output
+        # directly instead of requiring that install step, but only for the untouched default -
+        # an explicit caller-supplied executable is left alone.
+        if exe == "simb_net_wire" and os.environ.get("NET_BASE_PREFIX"):
+            exe = f"{os.environ['NET_BASE_PREFIX']}/wire/net_wire"
+
+        cmd = exe
         cmd += (
             f" {sockets[0]._path} {sockets[1]._path} {run_sync}"
             f" {sync_period.picoseconds} {eth_latency.picoseconds}"
@@ -128,10 +140,16 @@ class SwitchNet(sim_net.NetSim):
             sim_base.Simulator.get_unique_latency_period_sync(channels=channels)
         )
 
-        cmd = self._executable
+        exe = self._executable
+        # Same in-tree-build-vs-install-name split as WireNet.run_cmd above, for net_switch.
+        if exe == "simb_net_switch" and os.environ.get("NET_BASE_PREFIX"):
+            exe = f"{os.environ['NET_BASE_PREFIX']}/switch/net_switch"
+
+        cmd = exe
         cmd += f" -S {sync_period.picoseconds} -E {eth_latency.picoseconds}"
 
-        if not run_sync:
+        # unsynchronised while a checkpoint is created, like the hosts (KVM)
+        if not run_sync or inst.create_checkpoint:
             cmd += " -u"
 
         if self._relative_pcap_file_path is not None:
