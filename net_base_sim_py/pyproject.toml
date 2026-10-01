@@ -29,7 +29,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "simbricks-net-base-sim-py"
-version = "0.5.0"
+version = "0.6.0"
 description = "Basic network device models integration into SimBricks"
 authors  = [
   "Team SimBricks <team@simbricks.io>"
@@ -40,5 +40,6 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-simbricks-orchestration = ">=0.5.0"
-simbricks-utils = ">=0.5.0"
+python = ">=3.12"
+simbricks-orchestration = ">=0.6.0"
+simbricks-utils = ">=0.6.0"
